@@ -2,8 +2,8 @@
 
 **Minecraft Mod Auto Updater** · 一个便携式 Minecraft 模组移植工具。
 
-[![Release](https://img.shields.io/github/v/release/moonquarks/Minecraft-mod-auto-update?display_name=tag)](https://github.com/moonquarks/Minecraft-mod-auto-update/releases/latest)
-[![Tests](https://github.com/moonquarks/Minecraft-mod-auto-update/actions/workflows/tests.yml/badge.svg)](https://github.com/moonquarks/Minecraft-mod-auto-update/actions/workflows/tests.yml)
+[![Release](https://img.shields.io/github/v/release/YueBao-Idiot/Minecraft-mod-auto-update?display_name=tag)](https://github.com/YueBao-Idiot/Minecraft-mod-auto-update/releases/latest)
+[![Tests](https://github.com/YueBao-Idiot/Minecraft-mod-auto-update/actions/workflows/tests.yml/badge.svg)](https://github.com/YueBao-Idiot/Minecraft-mod-auto-update/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ![icon](assets/app.png)
@@ -38,7 +38,7 @@
 
 ### 方式 A：下载便携版
 
-从 [GitHub Releases](https://github.com/moonquarks/Minecraft-mod-auto-update/releases/latest) 下载最新的 Windows 便携版 zip。
+从 [GitHub Releases](https://github.com/YueBao-Idiot/Minecraft-mod-auto-update/releases/latest) 下载最新的 Windows 便携版 zip。
 
 解压后保留整个 `MC模组更新助手/` 文件夹，双击里面的 `启动.bat`，或直接运行 `MC模组更新助手.exe`。**不能只把 exe 拖出来**，必须和同目录的 `_internal/` 一起使用。
 
@@ -49,7 +49,7 @@
 需要 Python 3.11+（开发环境为 3.12）：
 
 ```powershell
-git clone https://github.com/moonquarks/Minecraft-mod-auto-update.git
+git clone https://github.com/YueBao-Idiot/Minecraft-mod-auto-update.git
 cd Minecraft-mod-auto-update
 python -m mcmodupdater
 ```
@@ -267,9 +267,9 @@ powershell -ExecutionPolicy Bypass -File tools/build_exe.ps1
 
 ## 项目地址与反馈
 
-- 仓库：<https://github.com/moonquarks/Minecraft-mod-auto-update>
-- 下载：<https://github.com/moonquarks/Minecraft-mod-auto-update/releases/latest>
-- 问题反馈：<https://github.com/moonquarks/Minecraft-mod-auto-update/issues>
+- 仓库：<https://github.com/YueBao-Idiot/Minecraft-mod-auto-update>
+- 下载：<https://github.com/YueBao-Idiot/Minecraft-mod-auto-update/releases/latest>
+- 问题反馈：<https://github.com/YueBao-Idiot/Minecraft-mod-auto-update/issues>
 - Pull Request 欢迎提交；修改后请先跑一遍单元测试和端到端测试。
 
 如果这个工具帮到了你，欢迎点一个 Star ⭐。

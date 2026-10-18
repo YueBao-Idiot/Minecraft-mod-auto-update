@@ -9,7 +9,7 @@ description = "Portable Minecraft mod update planner for Modrinth and CurseForge
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "moonquarks" }]
+authors = [{ name = "YueBao-Idiot" }]
 dependencies = []
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -23,10 +23,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/moonquarks/Minecraft-mod-auto-update"
-Repository = "https://github.com/moonquarks/Minecraft-mod-auto-update"
-Issues = "https://github.com/moonquarks/Minecraft-mod-auto-update/issues"
-Releases = "https://github.com/moonquarks/Minecraft-mod-auto-update/releases"
+Homepage = "https://github.com/YueBao-Idiot/Minecraft-mod-auto-update"
+Repository = "https://github.com/YueBao-Idiot/Minecraft-mod-auto-update"
+Issues = "https://github.com/YueBao-Idiot/Minecraft-mod-auto-update/issues"
+Releases = "https://github.com/YueBao-Idiot/Minecraft-mod-auto-update/releases"
 
 [project.scripts]
 mcmodupdater = "mcmodupdater.cli:main"
