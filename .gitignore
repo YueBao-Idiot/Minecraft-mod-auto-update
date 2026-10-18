@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# User data / caches / generated packages
+.cache/
+data/
+logs/
+output/*
+!output/.gitkeep
+instance/mods/*
+!instance/mods/.gitkeep
+instance/config/*
+!instance/config/.gitkeep
+*.zip
+*.sha256
+
+# PyInstaller / build output
+build/
+build_*/
+release/
+release_*/
+dist/
+*.spec
+MC模组更新助手.exe
+MC模组更新助手/
+_MEI*/
+runtime*/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mc-mod-updater"
+version = "1.0.0"
+description = "Portable Minecraft mod update planner for Modrinth and CurseForge"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "moonquarks" }]
+dependencies = []
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Games/Entertainment",
+]
+
+[project.urls]
+Homepage = "https://github.com/moonquarks/Minecraft-mod-auto-update"
+Repository = "https://github.com/moonquarks/Minecraft-mod-auto-update"
+Issues = "https://github.com/moonquarks/Minecraft-mod-auto-update/issues"
+Releases = "https://github.com/moonquarks/Minecraft-mod-auto-update/releases"
+
+[project.scripts]
+mcmodupdater = "mcmodupdater.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["mcmodupdater*"]

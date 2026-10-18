@@ -1,0 +1,3 @@
+# 运行时不需要第三方 Python 包。
+# 仅打包 exe 时需要 PyInstaller（开发环境已安装）：
+# python -m pip install pyinstaller
