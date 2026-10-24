@@ -239,20 +239,8 @@ class CurseForgeProvider(ModProvider):
         keys = [key for key in keys if len(key) >= 3]
         slug = normalize_name(str(hit.get("slug") or ""))
         title = normalize_name(str(hit.get("name") or hit.get("title") or ""))
-        best = 0
-        for key in keys:
-            for candidate in (slug, title):
-                if not candidate:
-                    continue
-                if key == candidate:
-                    best = max(best, 100)
-                elif (candidate.startswith(key) or key.startswith(candidate)) and min(len(key), len(candidate)) >= 4:
-                    best = max(best, 75)
-                elif len(key) >= 4 and key in candidate:
-                    best = max(best, 60)
-                elif len(candidate) >= 5 and candidate in key:
-                    best = max(best, 55)
-        return best
+        # 与 Modrinth 相同：只接受完整相等，避免子串误匹配。
+        return 100 if any(key == candidate for key in keys for candidate in (slug, title) if candidate) else 0
 
     def _search(self, query: str, game_version: str, loader: str, *, filtered: bool) -> list[dict[str, Any]]:
         params: dict[str, Any] = {
@@ -296,11 +284,11 @@ class CurseForgeProvider(ModProvider):
                     if score > best_score:
                         best_score = score
                         best_hit = hit
-                if best_hit is not None and best_score >= 75:
+                if best_hit is not None and best_score >= 100:
                     break
-            if best_hit is not None and best_score >= 75:
+            if best_hit is not None and best_score >= 100:
                 break
-        if not best_hit or best_score < 55:
+        if not best_hit or best_score < 100:
             return None
         project = self._project_from_json(best_hit)
         self._project_cache[project.project_id] = project
@@ -308,7 +296,7 @@ class CurseForgeProvider(ModProvider):
             project=project,
             current_version=None,
             method="search",
-            confidence="high" if best_score >= 75 else "medium",
+            confidence="high",
         )
 
     # ---------- 版本 ----------

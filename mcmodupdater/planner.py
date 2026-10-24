@@ -51,17 +51,26 @@ def canonical_version(value: str) -> str:
     return normalize_name(text)
 
 
+def _version_identity(value: str) -> str:
+    """保留 beta/alpha 和构建号，只去掉加载器与 Minecraft 版本前后缀。"""
+    text = (value or "").lower().strip()
+    if not text:
+        return ""
+    text = re.sub(r"\s+for\s+.*$", "", text)
+    text = re.sub(r"^(?:fabric|forge|neoforge|quilt)[-_.]?", "", text)
+    text = re.sub(r"^(?:mc[-_.]?)?(?:1|2\d)\.\d{1,2}(?:\.\d{1,2})?[-+]", "", text)
+    text = re.sub(r"\+(?:mc)?(?:1|2\d)\.\d{1,2}(?:\.\d{1,2})?$", "", text)
+    text = re.sub(r"[-_.](?:fabric|forge|neoforge|quilt)$", "", text)
+    return text.strip(" -_+")
+
+
 def versions_equivalent(left: str, right: str) -> bool:
-    left_key = canonical_version(left)
-    right_key = canonical_version(right)
+    left_key = _version_identity(left)
+    right_key = _version_identity(right)
     if not left_key or not right_key:
         return False
-    if left_key == right_key:
-        return True
-    # 0.5.11 与 0.5.11.1 视为不同；只有包含关系且长度至少 5 才放宽。
-    return min(len(left_key), len(right_key)) >= 5 and (
-        left_key.startswith(right_key + ".") or right_key.startswith(left_key + ".")
-    )
+    # 必须完整相等：2.3.0-beta.10 与 2.3.0-beta.9 不是同一个版本。
+    return left_key == right_key
 
 
 def _local_dependencies(mod: ModFile) -> list[RemoteDependency]:
@@ -813,25 +822,34 @@ class UpdatePlanner:
 
             current = mod_plan.current_version
             if current:
-                if current.version_id == target.version_id or versions_equivalent(
+                current_compatible = current.supports(plan.game_version, plan.loader)
+                same_version = current.version_id == target.version_id or versions_equivalent(
                     current.version_number, target.version_number
-                ):
+                )
+                if same_version and current_compatible:
                     mod_plan.status = "latest"
                     mod_plan.notes.append("当前文件已是目标版本")
+                elif same_version and not current_compatible:
+                    mod_plan.status = "update"
+                    mod_plan.notes.append("当前文件不兼容目标版本，将替换为兼容版本")
                 elif current.published and target.published:
                     from .util import parse_datetime
 
                     current_date = parse_datetime(current.published)
                     target_date = parse_datetime(target.published)
-                    if current_date and target_date and target_date <= current_date and current.supports(
-                        plan.game_version, plan.loader
-                    ):
+                    if current_date and target_date and target_date <= current_date and current_compatible:
                         mod_plan.status = "latest"
                         mod_plan.notes.append("远端没有比当前更新的稳定版本")
                     else:
                         mod_plan.status = "update"
                 else:
                     mod_plan.status = "update"
+                if (
+                    mod_plan.status == "update"
+                    and not current_compatible
+                    and "当前文件不兼容目标版本，将替换为兼容版本" not in mod_plan.notes
+                ):
+                    mod_plan.notes.append("当前文件不兼容目标版本，将替换为兼容版本")
             else:
                 local_version = mod_plan.mod.version
                 if local_version and versions_equivalent(local_version, target.version_number):
@@ -879,6 +897,24 @@ class UpdatePlanner:
         plan.configs = scan_configs(plan.source_root, mods, scope=scope)
         if scope == "matched":
             enrich_config_owners(plan.configs, plan.mods)
+            # 配置只跟随真正会进入目标实例的模组。被“无兼容版本”排除的
+            # 26.1 jar 不应把它的旧配置带进 1.20.2。
+            kept: set[str] = set()
+            for mod_plan in plan.mods:
+                if mod_plan.status == "update" or mod_plan.supports_target(plan.game_version, plan.loader):
+                    values = (
+                        mod_plan.mod.mod_id,
+                        mod_plan.mod.name,
+                        mod_plan.project.slug if mod_plan.project else "",
+                    )
+                    for value in values:
+                        key = normalize_name(value)
+                        if key:
+                            kept.add(key)
+            for item in plan.configs:
+                if item.owners and not any(normalize_name(owner) in kept for owner in item.owners):
+                    item.selected = False
+                    item.note = "所属模组不会进入目标实例，不迁移"
         if scope != "none" and not plan.configs:
             plan.warnings.append("没有找到 config 或 defaultconfigs 文件夹，配置迁移列表为空。")
 

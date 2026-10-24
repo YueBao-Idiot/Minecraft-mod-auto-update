@@ -179,20 +179,10 @@ class ModrinthProvider(ModProvider):
         slug = normalize_name(str(hit.get("slug") or ""))
         title = normalize_name(str(hit.get("title") or ""))
         candidates = [value for value in (slug, title) if value]
-        best = 0
-        for key in keys:
-            for candidate in candidates:
-                if key == candidate:
-                    best = max(best, 100)
-                elif candidate.startswith(key) or key.startswith(candidate):
-                    # 防止过短前缀误匹配
-                    if min(len(key), len(candidate)) >= 4:
-                        best = max(best, 75)
-                elif len(key) >= 4 and key in candidate:
-                    best = max(best, 60)
-                elif len(candidate) >= 5 and candidate in key:
-                    best = max(best, 55)
-        return best
+        # 只接受完整相等。历史上按子串匹配会把 R-Tweaks 匹配到
+        # VillagerTweaks、把 Painting 匹配到 Macaw's Paintings，进而下载
+        # 完全无关的模组；宁可标成“未找到”，交给人工确认。
+        return 100 if any(key == candidate for key in keys for candidate in candidates) else 0
 
     def search_mod(self, mod: ModFile, game_version: str, loader: str) -> MatchResult | None:
         queries: list[str] = []
@@ -214,11 +204,11 @@ class ModrinthProvider(ModProvider):
                     if score > best_score:
                         best_score = score
                         best_hit = hit
-                if best_hit is not None and best_score >= 75:
+                if best_hit is not None and best_score >= 100:
                     break
-            if best_hit is not None and best_score >= 75:
+            if best_hit is not None and best_score >= 100:
                 break
-        if not best_hit or best_score < 55:
+        if not best_hit or best_score < 100:
             return None
         project = self._project_from_json(best_hit)
         self._project_cache[project.project_id] = project
@@ -226,7 +216,7 @@ class ModrinthProvider(ModProvider):
             project=project,
             current_version=None,
             method="search",
-            confidence="high" if best_score >= 75 else "medium",
+            confidence="high",
         )
 
     # ---------- 项目/版本 ----------

@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .util import format_datetime, human_size, utc_now
+from .util import format_datetime, human_size, mc_version_key, utc_now
 
 LOADER_LABELS = {
     "fabric": "Fabric",
@@ -298,6 +298,40 @@ class ModPlan:
     @property
     def can_download(self) -> bool:
         return bool(self.selected and self.target_version and self.target_version.download_url)
+
+    def supports_target(self, game_version: str, loader: str) -> bool:
+        """判断当前本地文件是否可能兼容目标游戏版本/加载器。
+
+        优先使用本地 jar 的元数据；本地没有声明游戏版本时，再使用平台
+        返回的 game_versions/loaders。无法判断时宁可保留，避免误删。
+        """
+        installed_loaders = {value.lower() for value in self.mod.loaders}
+        if self.mod.loader and self.mod.loader != "unknown":
+            installed_loaders.add(self.mod.loader.lower())
+        if installed_loaders:
+            accepted = {
+                "fabric": {"fabric"},
+                "forge": {"forge"},
+                "neoforge": {"neoforge", "neo"},
+            }.get(loader, {loader})
+            if not accepted.intersection(installed_loaders):
+                return False
+
+        # 本地 jar 声明的 Minecraft 范围最贴近实际文件；它比平台的
+        # game_versions 更可靠，也能识别“文件名写着 1.20.2、实际是 26.1”的 jar。
+        if self.mod.mc_versions:
+            if game_version in self.mod.mc_versions:
+                return True
+            # 全是更高版本（例如 26.1）才能确定不兼容；只声明了较低版本
+            # 时可能是一个范围（>=1.20.1），宁可保留。
+            target_key = mc_version_key(game_version)
+            if all(mc_version_key(value) > target_key for value in self.mod.mc_versions):
+                return False
+            return True
+        current = self.current_version
+        if current is not None:
+            return current.supports(game_version, loader)
+        return True
 
     def to_dict(self) -> dict[str, Any]:
         return {

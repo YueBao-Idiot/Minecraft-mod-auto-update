@@ -66,6 +66,7 @@ class ApplyResult:
     zip_path: Path
     records: list[DownloadRecord] = field(default_factory=list)
     copied_old: int = 0
+    skipped_incompatible: list[dict] = field(default_factory=list)
     configs_copied: int = 0
     config_errors: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -98,6 +99,7 @@ class ApplyResult:
             "zip_size": self.zip_size,
             "records": [record.to_dict() for record in self.records],
             "copied_old": self.copied_old,
+            "skipped_incompatible": self.skipped_incompatible,
             "configs_copied": self.configs_copied,
             "config_errors": self.config_errors,
             "errors": self.errors,
@@ -323,14 +325,35 @@ class Applier:
                     record.error = str(exc)
                     self._emit(f"下载失败：{record.name}（{exc}）", completed, len(download_jobs))
 
+        # 同一个文件可能同时被“模组更新”和“补充前置”下载，按内容去重。
+        seen_hashes: dict[str, DownloadRecord] = {}
+        unique_downloads: list[tuple[Path, DownloadRecord]] = []
+        deduped_old_paths: set[str] = set()
+        for staging_path, record in downloaded_files:
+            digest = _hash_file(staging_path, "sha512")
+            duplicate = seen_hashes.get(digest)
+            if duplicate is not None:
+                if record.old_path:
+                    # 即使这条记录被去重，它的旧 jar 也会被保留的那份替换。
+                    deduped_old_paths.add(record.old_path)
+                record.status = "skipped"
+                record.error = f"与 {duplicate.filename} 内容相同，已跳过"
+                staging_path.unlink(missing_ok=True)
+                self._emit(f"跳过重复文件：{record.name}")
+                continue
+            seen_hashes[digest] = record
+            unique_downloads.append((staging_path, record))
+        downloaded_files = unique_downloads
+
         # 只有成功下载了替换文件，才移除对应的旧 jar；失败或需要手动下载时保留旧版本。
         successful_old_paths = {
             record.old_path
             for record in self.result.records
             if record.kind == "mod" and record.status == "downloaded" and record.old_path
         }
+        successful_old_paths.update(deduped_old_paths)
         if self.settings.full_instance:
-            self._copy_old_mods(successful_old_paths)
+            self._copy_old_mods(successful_old_paths, self._incompatible_old_mods())
         for staging_path, record in downloaded_files:
             destination = self._unique_destination(self.mods_dir / record.filename)
             staging_path.replace(destination)
@@ -369,16 +392,45 @@ class Applier:
         self._emit(f"移植压缩包已生成：{self.zip_path}")
         return self.result
 
-    def _copy_old_mods(self, successful_old_paths: set[str]) -> None:
+    def _incompatible_old_mods(self) -> dict[str, dict]:
+        """找出不应原样放进目标实例的旧 jar，并记录原因。"""
+        result: dict[str, dict] = {}
+        for mod_plan in self.plan.mods:
+            if mod_plan.supports_target(self.plan.game_version, self.plan.loader):
+                continue
+            path = str(mod_plan.mod.path.resolve())
+            result[path] = {
+                "filename": mod_plan.mod.filename,
+                "name": mod_plan.mod.display_name,
+                "status": mod_plan.status_label,
+                "reason": (
+                    f"本地文件不支持 Minecraft {self.plan.game_version} / "
+                    f"{LOADER_LABELS.get(self.plan.loader, self.plan.loader)}，未放入移植包"
+                ),
+            }
+        return result
+
+    def _copy_old_mods(
+        self,
+        successful_old_paths: set[str],
+        incompatible_old_mods: dict[str, dict] | None = None,
+    ) -> None:
         if not self.plan.mods_dir.is_dir():
             return
+        incompatible_old_mods = incompatible_old_mods or {}
         copied = 0
         for source in self.plan.mods_dir.rglob("*"):
             if not source.is_file():
                 continue
-            if str(source.resolve()) in successful_old_paths:
+            resolved = str(source.resolve())
+            if resolved in successful_old_paths:
                 continue
             relative = source.relative_to(self.plan.mods_dir)
+            if resolved in incompatible_old_mods:
+                skipped = dict(incompatible_old_mods[resolved])
+                skipped["filename"] = str(relative).replace("\\", "/")
+                self.result.skipped_incompatible.append(skipped)
+                continue
             destination = self.mods_dir / relative
             try:
                 destination.parent.mkdir(parents=True, exist_ok=True)
@@ -444,7 +496,8 @@ class Applier:
     def _write_readme(self) -> None:
         loader = self.plan.loader_label
         full_note = (
-            "mods 文件夹是完整集合：保留未更新/未找到的旧模组，替换成功更新的模组，并加入新增前置。"
+            "mods 文件夹是完整集合：保留兼容目标版本的未更新模组，替换成功更新的模组，"
+            "加入新增前置，并排除已确认不兼容目标版本的旧模组（见报告）。"
             if self.settings.full_instance
             else "mods 文件夹只包含本次成功下载的更新和新增前置，请自行与旧 mods 合并。"
         )
@@ -507,6 +560,7 @@ manifest.json    本次操作的机器可读记录
                 "failed": [record.to_dict() for record in self.result.failed],
                 "manual": [record.to_dict() for record in self.result.manual],
                 "copied_old": self.result.copied_old,
+                "skipped_incompatible": self.result.skipped_incompatible,
                 "configs_copied": self.result.configs_copied,
                 "config_errors": self.result.config_errors,
                 "errors": self.result.errors,

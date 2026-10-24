@@ -10,9 +10,10 @@ from pathlib import Path
 from mcmodupdater.downloader import build_package_name
 from mcmodupdater.instance import detect_instance
 from mcmodupdater.jarinfo import inspect_jar
-from mcmodupdater.models import UpdatePlan
+from mcmodupdater.models import ModFile, ModPlan, UpdatePlan
 from mcmodupdater.paths import OUTPUT_DIR
 from mcmodupdater.planner import canonical_version, versions_equivalent
+from mcmodupdater.providers.modrinth import ModrinthProvider
 from mcmodupdater.util import extract_mc_versions, is_mc_version, is_plausible_mc_version
 
 from .fixtures import make_forge_jar, make_neoforge_jar
@@ -104,6 +105,47 @@ class VersionRulesTest(unittest.TestCase):
         self.assertTrue(versions_equivalent("0.5.13", "mc26.3-0.5.13-fabric"))
         self.assertTrue(versions_equivalent("31.15.0.82", "31.15.0.82 for Fabric 26.3"))
         self.assertFalse(versions_equivalent("0.5.11", "0.5.13"))
+
+    def test_prerelease_versions_are_not_equivalent(self) -> None:
+        self.assertFalse(versions_equivalent("2.3.0-beta.10+26.1", "2.3.0-beta.9+1.20.2"))
+        self.assertTrue(versions_equivalent("2.3.0-beta.10+26.1", "2.3.0-beta.10+1.20.2"))
+
+    def test_local_incompatible_mod_is_detected(self) -> None:
+        incompatible = ModFile(
+            path=Path("old.jar"),
+            filename="old.jar",
+            size=0,
+            mc_versions=["26.1"],
+            loaders=["fabric"],
+            loader="fabric",
+        )
+        self.assertFalse(ModPlan(mod=incompatible).supports_target("1.20.2", "fabric"))
+        compatible = ModFile(
+            path=Path("new.jar"),
+            filename="new.jar",
+            size=0,
+            mc_versions=["1.20.2"],
+            loaders=["fabric"],
+            loader="fabric",
+        )
+        self.assertTrue(ModPlan(mod=compatible).supports_target("1.20.2", "fabric"))
+
+    def test_name_search_requires_exact_match(self) -> None:
+        mod = ModFile(
+            path=Path("rtweaks.jar"),
+            filename="rtweaks.jar",
+            size=0,
+            mod_ids=["rtweaks"],
+            name="R-Tweaks",
+        )
+        self.assertEqual(
+            ModrinthProvider._score_candidate(mod, {"slug": "villagertweaks", "title": "Villager Tweaks"}),
+            0,
+        )
+        self.assertEqual(
+            ModrinthProvider._score_candidate(mod, {"slug": "rtweaks", "title": "R-Tweaks"}),
+            100,
+        )
 
     def test_extract_versions(self) -> None:
         self.assertEqual(extract_mc_versions("mc26.3-fabric-31.15.0.82"), ["26.3"])

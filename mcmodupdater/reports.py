@@ -335,7 +335,10 @@ def write_reports(plan: UpdatePlan, output_dir: Path, result: "ApplyResult | Non
         lines.append(f"- 压缩包：`{result.zip_path.name}`")
         lines.append(f"- 输出目录：`{result.output_dir}`")
         lines.append(f"- 成功下载：{len(result.downloaded)}　失败：{len(result.failed)}　需手动：{len(result.manual)}")
-        lines.append(f"- 复制旧 mod：{result.copied_old}　迁移配置：{result.configs_copied}")
+        lines.append(
+            f"- 复制旧 mod：{result.copied_old}　排除不兼容旧 mod：{len(result.skipped_incompatible)}"
+            f"　迁移配置：{result.configs_copied}"
+        )
         lines.append("")
         lines.append(
             _table(
@@ -353,6 +356,27 @@ def write_reports(plan: UpdatePlan, output_dir: Path, result: "ApplyResult | Non
                 ),
             )
         )
+        if result.skipped_incompatible:
+            lines.extend(
+                [
+                    "### 未放入移植包的旧模组（与目标版本不兼容）",
+                    "",
+                    "这些文件仍在源实例中；工具没有把它们复制到目标 mods，避免启动时直接崩溃。",
+                    "",
+                    _table(
+                        ["文件", "模组", "原状态", "原因"],
+                        (
+                            [
+                                item.get("filename", ""),
+                                item.get("name", ""),
+                                item.get("status", ""),
+                                item.get("reason", ""),
+                            ]
+                            for item in result.skipped_incompatible
+                        ),
+                    ),
+                ]
+            )
     else:
         lines.append("本次只生成计划，没有执行下载。\n")
 

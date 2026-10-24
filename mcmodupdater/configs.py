@@ -9,19 +9,37 @@ from .models import ConfigItem, ModFile, ModPlan
 from .util import normalize_name
 
 CONFIG_ROOTS = ("config", "defaultconfigs")
-IGNORED_DIRS = {"cache", "logs", "backup", "backups", ".cache", "__pycache__"}
+IGNORED_DIRS = {"cache", "logs", "backup", "backups", ".cache", "__pycache__", ".puzzle_cache", "modpack_defaults"}
 IGNORED_SUFFIXES = {".log", ".bak", ".tmp", ".old", ".lock", ".pid", ".dat_old"}
-IGNORED_NAMES = {".ds_store", "thumbs.db", "desktop.ini"}
+IGNORED_NAMES = {".ds_store", "thumbs.db", "desktop.ini", "fabric_loader_dependencies.json"}
 GENERIC_KEYS = {"config", "defaultconfigs", "minecraft", "forge", "fabric", "neoforge", "common", "client", "server"}
+
+# 配置文件名和 jar 内的 mod id 不总是一致。这里只做明确、可验证的别名，
+# 避免再把 xaero/minimap 之类的配置误判给名字里恰好含 compass 的模组。
+CONFIG_ALIASES: dict[str, set[str]] = {
+    "bettergrass": {"bettergrass", "bettergrassify"},
+    "detailarmorbar": {"detailabreconst", "detailarmorbarreconstructed"},
+    "skinlayers": {"skinlayers3d", "skinlayers"},
+    "etf": {"entity-texture-features", "entitytexturefeatures"},
+    "xaero": {"xaerominimap", "xaeroworldmap"},
+    "transition": {"smoothswapping"},
+}
 
 
 def _mod_keys(mods: Iterable[ModFile]) -> list[tuple[str, str]]:
     result: list[tuple[str, str]] = []
     for mod in mods:
-        for value in [*mod.mod_ids, mod.name]:
+        owner = mod.mod_id or mod.display_name
+        values = [*mod.mod_ids, mod.name]
+        aliases = {
+            alias
+            for alias, targets in CONFIG_ALIASES.items()
+            if any(normalize_name(value) in targets for value in values if value)
+        }
+        for value in [*values, *aliases]:
             key = normalize_name(value)
             if len(key) >= 3 and key not in GENERIC_KEYS:
-                result.append((key, mod.mod_id or mod.display_name))
+                result.append((key, owner))
     # 长键优先，避免 "create" 抢走 "createaddition"。
     result.sort(key=lambda item: len(item[0]), reverse=True)
     return result

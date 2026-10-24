@@ -29,6 +29,9 @@ MC模组更新助手/
 _MEI*/
 runtime*/
 
+# Local diagnostics (crash reports, extracted packages)
+_diagnose/
+
 # OS/editor
 .DS_Store
 Thumbs.db
